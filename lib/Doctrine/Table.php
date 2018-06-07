@@ -1350,6 +1350,7 @@ class Doctrine_Table extends Doctrine_Configurable implements Countable
                 case 'integer':
                 case 'array':
                 case 'object':
+                case 'json':
                 case 'blob':
                 case 'gzip':
                     //$length = 2147483647;
@@ -1374,7 +1375,7 @@ class Doctrine_Table extends Doctrine_Configurable implements Countable
 
         $options['type'] = $type;
         $options['length'] = $length;
-        
+
         if (strtolower($fieldName) != $name) {
             $options['alias'] = $fieldName;
         }
@@ -2349,6 +2350,16 @@ class Doctrine_Table extends Doctrine_Configurable implements Countable
                         return $value;
                     }
                 break;
+                case 'json':
+                    if (is_string($value)) {
+                        $value = empty($value) ? null:json_decode($value);
+
+                        if ($value === false) {
+                            throw new Doctrine_Table_Exception('Json decoding of ' . $fieldName . ' failed.');
+                        }
+                        return $value;
+                    }
+                break;
                 case 'gzip':
                     $value = gzuncompress($value);
 
@@ -2740,10 +2751,10 @@ class Doctrine_Table extends Doctrine_Configurable implements Countable
         $fieldsFound = $matches[1];
         $operatorFound = array_map('strtoupper', $matches[2]);
 
-        // Check if $fieldName has unidentified parts left 
+        // Check if $fieldName has unidentified parts left
         if (strlen(implode('', $fieldsFound) . implode('', $operatorFound)) !== strlen($fieldName)) {
             $expression = preg_replace('/(' . implode('|', $fields) . ')(Or|And)?/', '($1)$2', $fieldName);
-            throw new Doctrine_Table_Exception('Invalid expression found: ' . $expression);    
+            throw new Doctrine_Table_Exception('Invalid expression found: ' . $expression);
         }
 
         // Build result
@@ -2768,7 +2779,7 @@ class Doctrine_Table extends Doctrine_Configurable implements Countable
             }
 
             $where .= ' ' . strtoupper($operatorFound[$index]) . ' ';
-            
+
             $lastOperator = $operatorFound[$index];
         }
 
