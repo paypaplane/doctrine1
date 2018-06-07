@@ -96,6 +96,8 @@ class Doctrine_Validator extends Doctrine_Locator_Injectable
             return true;
         } else if ($type == 'array' || $type == 'object') {
             $length = strlen(serialize($value));
+        } else if ($type == 'json') {
+            $length = strlen(json_encode($value));
         } else if ($type == 'decimal' || $type == 'float') {
             $value = abs($value);
 
@@ -104,7 +106,7 @@ class Doctrine_Validator extends Doctrine_Locator_Injectable
             $e = explode($decimalPoint, $value);
 
             $length = strlen($e[0]);
-            
+
             if (isset($e[1])) {
                 $length = $length + strlen($e[1]);
             }
@@ -122,7 +124,7 @@ class Doctrine_Validator extends Doctrine_Locator_Injectable
     /**
      * Get length of passed string. Will use multibyte character functions if they exist
      *
-     * @param string $string 
+     * @param string $string
      * @return integer $length
      */
     public static function getStringLength($string)
@@ -179,6 +181,8 @@ class Doctrine_Validator extends Doctrine_Locator_Injectable
                  return is_array($var);
              case 'object':
                  return is_object($var);
+             case 'json':
+                 return is_object($var) || is_array($var);
              case 'boolean':
                  return is_bool($var) || (is_numeric($var) && ($var == 0 || $var == 1));
              case 'timestamp':

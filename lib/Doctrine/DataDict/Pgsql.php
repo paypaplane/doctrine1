@@ -365,7 +365,7 @@ class Doctrine_DataDict_Pgsql extends Doctrine_DataDict
 
         // Postgres enum type by name containing enum
         if (strpos($field['type'], 'enum') !== false){
-            $field['type'] = 'enum';            
+            $field['type'] = 'enum';
         }
 
         switch ($field['type']) {
@@ -385,6 +385,8 @@ class Doctrine_DataDict_Pgsql extends Doctrine_DataDict
                 return $fixed ? ($length ? 'CHAR(' . $length . ')' : 'CHAR('.$this->conn->varchar_max_length.')')
                     : ($length ? 'VARCHAR(' .$length . ')' : 'TEXT');
 
+            case 'json':
+                return 'JSONB';
             case 'clob':
                 return 'TEXT';
             case 'blob':
@@ -415,7 +417,7 @@ class Doctrine_DataDict_Pgsql extends Doctrine_DataDict
 				return 'INET';
             case 'bit':
             case 'varbit':
-                return 'VARBIT';		
+                return 'VARBIT';
             case 'boolean':
                 return 'BOOLEAN';
             case 'date':

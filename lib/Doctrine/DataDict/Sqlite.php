@@ -64,6 +64,7 @@ class Doctrine_DataDict_Sqlite extends Doctrine_DataDict
                 $field['length'] = isset($field['length']) && $field['length'] ? $field['length']:255;
             case 'text':
             case 'object':
+            case 'json':
             case 'array':
             case 'string':
             case 'char':
