@@ -1,7 +1,7 @@
 {
     "name": "ozsynergy/doctrine1",
     "type": "library",
-    "description": "PHP5 Database ORM",
+    "description": "PHP 7 compatible version of doctrine 1 Database ORM",
     "keywords": ["orm", "database"],
     "homepage": "http://www.doctrine-project.org",
     "license": "LGPL-2.0-or-later",
