@@ -752,15 +752,16 @@ abstract class Doctrine_Record extends Doctrine_Record_Abstract implements Count
             $type = $this->_table->getTypeOf($fieldName);
         }
 
-        $complexTypeChanged = false;
         if (in_array($type, array('object', 'array', 'json'))) {
+            $complexTypeChanged = false;
             $hash = md5(json_encode($value));
             if (!isset($this->_fieldSignatures[$fieldName]) || $this->_fieldSignatures[$fieldName] != $hash) {
                 $complexTypeChanged = true;
             }
             $this->_fieldSignatures[$fieldName] = $hash;
+            return $complexTypeChanged;
         }
-        return $complexTypeChanged;
+        return -1;
     }
 
     /**
@@ -1519,7 +1520,7 @@ abstract class Doctrine_Record extends Doctrine_Record_Abstract implements Count
 
             $complexTypeChanged = $this->_initializeComplexType($fieldName, $value, $type);
 
-            if ($complexTypeChanged || $this->_isValueModified($type, $old, $value)) {
+            if ($complexTypeChanged || $complexTypeChanged === -1 && $this->_isValueModified($type, $old, $value)) {
                 if ($value === null) {
                     $value = $this->_table->getDefaultValueOf($fieldName);
                 }
