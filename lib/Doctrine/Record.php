@@ -754,7 +754,7 @@ abstract class Doctrine_Record extends Doctrine_Record_Abstract implements Count
 
         if (in_array($type, array('object', 'array', 'json'))) {
             $complexTypeChanged = false;
-            $hash = md5(json_encode($value));
+            $hash = md5(serialize($value));
             if (!isset($this->_fieldSignatures[$fieldName]) || $this->_fieldSignatures[$fieldName] != $hash) {
                 $complexTypeChanged = true;
             }
