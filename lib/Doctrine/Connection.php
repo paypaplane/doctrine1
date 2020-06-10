@@ -1236,11 +1236,7 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
     public function clear()
     {
         foreach ($this->tables as $k => $table) {
-            if ($table->getRepository()) {
-				if( $table->getRepository()) {
-					$table->getRepository()->evictAll();
-				}
-			}
+            $table->getRepository()->evictAll();
             $table->clear();
         }
     }
