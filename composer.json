@@ -1,5 +1,5 @@
 {
-    "name": "ozsynergy/doctrine1",
+    "name": "paypaplane/doctrine1",
     "type": "library",
     "description": "PHP 7 compatible version of doctrine 1 Database ORM",
     "keywords": ["orm", "database"],
