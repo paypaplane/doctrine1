@@ -133,7 +133,6 @@ class Doctrine_Migration
 
         $classesToLoad = array();
         $classes = get_declared_classes();
-        array_push($classes, 'poDoctrineMigration');
         foreach ((array) $directory as $dir) {
             $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir),
                 RecursiveIteratorIterator::LEAVES_ONLY);
