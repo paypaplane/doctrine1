@@ -7,7 +7,7 @@ This is a fork of maintained Doctrine 1 fork you can use in your projects using 
 ```json
 {
   "require": {
-    "drivensystems/doctrine1": "master"
+    "paypaplane/doctrine1": "master"
   }
 }
 ```
