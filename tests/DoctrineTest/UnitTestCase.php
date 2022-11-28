@@ -11,6 +11,14 @@ class UnitTestCase
 
     protected static $_lastRunsPassesAndFails = array('passes' => array(), 'fails' => array());
 
+    public function setUp()
+    {
+    }
+
+    public function tearDown()
+    {
+    }
+
     public function init()
     {
         $tmpFileName = $this->getPassesAndFailsCachePath();
@@ -149,15 +157,11 @@ class UnitTestCase
         self::$_passesAndFails['fails'][$class] = $class;
     }
 
-    public function run(DoctrineTest_Reporter $reporter = null, $filter = null) 
+    public function run(DoctrineTest_Reporter $reporter = null, $filter = null)
     {
         foreach (get_class_methods($this) as $method) {
-            if (substr($method, 0, 4) === 'test') {
-                $this->setUp();
-
-                $this->$method();
-                
-                $this->tearDown();
+            if ($this->isTestMethod($method)) {
+                $this->runTest($method);
             }
         }
     }
@@ -224,7 +228,7 @@ class UnitTestCase
                 $newFails[$fail] = $fail;
             }
         }
-        return $newFails;;
+        return $newFails;
     }
 
     public function getFixedFails()
@@ -237,7 +241,7 @@ class UnitTestCase
                 $fixed[$fail] = $fail;
             }
         }
-        return $fixed;;
+        return $fixed;
     }
 
     public function getNumNewFails()
@@ -248,5 +252,50 @@ class UnitTestCase
     public function getNumFixedFails()
     {
         return count($this->getFixedFails());
+    }
+
+    private function runTest($method)
+    {
+        $this->setUp();
+
+        $this->doRunTestAndTearDown($method);
+    }
+
+    private function doRunTestAndTearDown($method)
+    {
+        $test = $this;
+
+        $this->tryFinally(
+            function () use ($test, $method) {
+                $test->$method();
+            },
+            function () use ($test) {
+                $test->tearDown();
+            }
+        );
+    }
+
+    private function isTestMethod($method)
+    {
+        return 'test' === substr($method, 0, 4);
+    }
+
+    private function tryFinally(Closure $try, Closure $finally)
+    {
+        $thrownException = null;
+
+        try {
+            $try();
+        } catch (Throwable $e) {
+            $thrownException = $e;
+        } catch (Exception $e) { // for PHP v5.x
+            $thrownException = $e;
+        }
+
+        $finally();
+
+        if (null !== $thrownException) {
+            throw $thrownException;
+        }
     }
 }

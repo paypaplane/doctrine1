@@ -6,18 +6,41 @@
     "homepage": "http://www.doctrine-project.org",
     "license": "LGPL-2.0-or-later",
     "authors": [
-        {"name": "Konsta Vesterinen", "email": "kvesteri@cc.hut.fi"},
-        {"name": "Jonathan Wage", "email": "jonwage@gmail.com"}
+        {
+            "name": "Konsta Vesterinen",
+            "email": "kvesteri@cc.hut.fi"
+        },
+        {
+            "name": "Jonathan Wage",
+            "email": "jonwage@gmail.com"
+        },
+        {
+            "name": "Doctrine1 Contributors",
+            "homepage": "https://github.com/FriendsOfSymfony1/doctrine1/graphs/contributors"
+        }
     ],
     "require": {
-        "php": ">=5.2.3",
+        "php": ">=5.3",
+        "ext-zlib": "*",
+        "ext-mbstring": "*",
         "ext-pdo": "*"
     },
+    "support": {
+        "issues": "https://github.com/FriendsOfSymfony1/doctrine1/issues",
+        "source": "https://github.com/FriendsOfSymfony1/doctrine1"
+    },
     "autoload": {
-        "psr-0": { "Doctrine_": "lib/" },
+        "psr-0": {
+            "Doctrine_": "lib/"
+        },
         "classmap": [
             "lib/Doctrine.php",
             "lib/Doctrine/Parser/sfYaml/"
         ]
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.4-dev"
+        }
     }
 }

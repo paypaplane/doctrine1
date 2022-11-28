@@ -108,17 +108,15 @@ class Doctrine_Validator extends Doctrine_Locator_Injectable
             $length = strlen($e[0]);
 
             if (isset($e[1])) {
-                $length = $length + strlen($e[1]);
+                $length += strlen($e[1]);
             }
-        } else if ($type == 'blob') {
+        } else if ($type === 'blob') {
             $length = strlen($value);
         } else {
             $length = self::getStringLength($value);
         }
-        if ($length > $maximumLength) {
-            return false;
-        }
-        return true;
+
+        return $length <= $maximumLength;
     }
 
     /**
@@ -130,9 +128,9 @@ class Doctrine_Validator extends Doctrine_Locator_Injectable
     public static function getStringLength($string)
     {
         if (function_exists('mb_strlen')) {
-            return mb_strlen($string, 'utf8');
+            return mb_strlen((string) $string, 'utf8');
         } else {
-            return strlen(utf8_decode($string));
+            return strlen(utf8_decode((string) $string));
         }
     }
 
@@ -153,15 +151,11 @@ class Doctrine_Validator extends Doctrine_Locator_Injectable
      * @param  string $type  Type of the variable expected
      * @return boolean
      */
-     public static function isValidType($var, $type)
-     {
-         if ($var instanceof Doctrine_Expression) {
-             return true;
-         } else if ($var === null) {
-             return true;
-         } else if (is_object($var)) {
-             return $type == 'object';
-         }
+    public static function isValidType($var, $type)
+    {
+        if ($var instanceof Doctrine_Expression) {
+            return true;
+        }
 
          switch ($type) {
              case 'float':

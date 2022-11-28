@@ -78,7 +78,7 @@ class Doctrine_Data_Import extends Doctrine_Data
 
                 // If they specified a specific yml file
                 if (end($e) == 'yml') {
-                    $array = $mergeFunction($array, Doctrine_Parser::load($dir, $this->getFormat()));
+                    $array = $mergeFunction($array, Doctrine_Parser::load($dir, $this->getFormat(), $this->getCharset()));
                 // If they specified a directory
                 } else if (is_dir($dir)) {
                     $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir),
@@ -92,7 +92,7 @@ class Doctrine_Data_Import extends Doctrine_Data
                     foreach ($filesOrdered as $file) {
                         $e = explode('.', $file->getFileName());
                         if (in_array(end($e), $this->getFormats())) {
-                            $array = $mergeFunction($array, Doctrine_Parser::load($file->getPathName(), $this->getFormat()));
+                            $array = $mergeFunction($array, Doctrine_Parser::load($file->getPathName(), $this->getFormat(), $this->getCharset()));
                         }
                     }
                 }
@@ -341,6 +341,7 @@ class Doctrine_Data_Import extends Doctrine_Data
         foreach ($manager as $connection) {
             $tree = $connection->unitOfWork->buildFlushTree(array_keys($array));
 
+            $connection->beginTransaction();
             foreach ($tree as $model) {
                 foreach ($this->_importedObjects as $obj) {
 
@@ -349,8 +350,8 @@ class Doctrine_Data_Import extends Doctrine_Data
                     }
                 }
             }
+            $connection->commit();
         }
-
     }
 
     /**
