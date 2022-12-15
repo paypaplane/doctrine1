@@ -1,6 +1,6 @@
 <?php
 /*
- *  $Id: Connection.php 7490 2010-03-29 19:53:27Z jwage $
+ *  $Id$
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -49,7 +49,7 @@
  * @license     http://www.opensource.org/licenses/lgpl-license.php LGPL
  * @link        www.doctrine-project.org
  * @since       1.0
- * @version     $Revision: 7490 $
+ * @version     $Revision$
  * @author      Konsta Vesterinen <kvesteri@cc.hut.fi>
  * @author      Lukas Smith <smith@pooteeweet.org> (MDB2 library)
  */
@@ -179,9 +179,15 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
      * @var array $_userFkNames                 array of foreign key names that have been used
      */
     protected $_usedNames = array(
-            'foreign_keys' => array(),
-            'indexes' => array()
-        );
+        'foreign_keys' => array(),
+        'indexes' => array()
+    );
+
+    /**
+     * @var Doctrine_Cache_Interface  The cache driver used for caching tables.
+     */
+    protected $_tableCache;
+    protected $_tableCacheTTL;
 
     /**
      * the constructor
@@ -219,6 +225,8 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
         $this->setAttribute(Doctrine_Core::ATTR_ERRMODE, Doctrine_Core::ERRMODE_EXCEPTION);
 
         $this->getAttribute(Doctrine_Core::ATTR_LISTENER)->onOpen($this);
+
+        $this->_tableCacheTTL = $this->getAttribute(Doctrine_Core::ATTR_TABLE_CACHE_LIFESPAN);
     }
 
     /**
@@ -1116,6 +1124,20 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
             return $this->tables[$name];
         }
 
+        $hasTableCache = $this->_tableCache !== false && ($this->_tableCache || $this->getAttribute(Doctrine_Core::ATTR_TABLE_CACHE));
+        if ($hasTableCache) {
+            $tableCacheDriver = $this->getTableCacheDriver();
+            $hash = md5($name . 'DOCTRINE_TABLE_CACHE_SALT');
+            $cached = $tableCacheDriver->fetch($hash);
+
+            if ($cached) {
+                $table = unserialize($cached);
+                $table->initializeFromCache($this);
+
+                return $this->tables[$name] = $table;
+            }
+        }
+
         $class = sprintf($this->getAttribute(Doctrine_Core::ATTR_TABLE_CLASS_FORMAT), $name);
 
         if (class_exists($class, $this->getAttribute(Doctrine_Core::ATTR_AUTOLOAD_TABLE_CLASSES)) &&
@@ -1124,6 +1146,11 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
         } else {
             $tableClass = $this->getAttribute(Doctrine_Core::ATTR_TABLE_CLASS);
             $table = new $tableClass($name, $this, true);
+        }
+
+        if ($hasTableCache) {
+            // Save cached query
+            $tableCacheDriver->save($hash, serialize($table), $this->getTableCacheLifeSpan());
         }
 
         return $table;
@@ -1151,6 +1178,7 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
      *
      * @return ArrayIterator        SPL ArrayIterator object
      */
+    #[\ReturnTypeWillChange]
     public function getIterator()
     {
         return new ArrayIterator($this->tables);
@@ -1161,6 +1189,7 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
      *
      * @return integer
      */
+    #[\ReturnTypeWillChange]
     public function count()
     {
         return $this->_count;
@@ -1181,6 +1210,7 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
             return false;
         }
         $this->tables[$name] = $table;
+
         return true;
     }
 
@@ -1335,6 +1365,30 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
         }
 
         return $this->getAttribute(Doctrine_Core::ATTR_QUERY_CACHE);
+    }
+
+    /**
+     * getQueryCacheDriver
+     *
+     * @return Doctrine_Cache_Interface
+     */
+    public function getTableCacheDriver()
+    {
+        if ( ! $this->getAttribute(Doctrine_Core::ATTR_TABLE_CACHE)) {
+            throw new Doctrine_Exception('Query Cache driver not initialized.');
+        }
+
+        return $this->getAttribute(Doctrine_Core::ATTR_TABLE_CACHE);
+    }
+
+    /**
+     * Gets the life span of the table cache the Query object is using.
+     *
+     * @return integer  The life span in seconds.
+     */
+    public function getTableCacheLifeSpan()
+    {
+        return $this->_tableCacheTTL;
     }
 
     /**
@@ -1554,6 +1608,7 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
         return Doctrine_Lib::getConnectionAsString($this);
     }
 
+
     /**
      * Serialize. Remove database connection(pdo) since it cannot be serialized
      *
@@ -1561,9 +1616,8 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
      */
     public function serialize()
     {
-        $vars = get_object_vars($this);
-        $vars['dbh'] = null;
-        $vars['isConnected'] = false;
+        $vars = $this->__serialize();
+
         return serialize($vars);
     }
 
@@ -1577,7 +1631,32 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
     {
         $array = unserialize($serialized);
 
-        foreach ($array as $name => $values) {
+        $this->__unserialize($array);
+    }
+
+    /**
+     * Serialize. Remove database connection(pdo) since it cannot be serialized for PHP 7.4+
+     *
+     * @return array
+     */
+    public function __serialize()
+    {
+        $vars = get_object_vars($this);
+        $vars['dbh'] = null;
+        $vars['isConnected'] = false;
+
+        return $vars;
+    }
+
+    /**
+     * Unserialize. Recreate connection from serialized content PHP 7.4+
+     *
+     * @param array $data
+     * @return void
+     */
+    public function __unserialize($data)
+    {
+        foreach ($data as $name => $values) {
             $this->$name = $values;
         }
     }

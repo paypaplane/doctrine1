@@ -478,7 +478,7 @@ class Doctrine_Query_Tokenizer
             if ( ! isset($res[$i])) {
                 $res[$i] = array($val[0], $val[1], $val[2]);
             } else {
-                $res[$i][0] .= $res[$i][1] . $val[0]; 
+                $res[$i][0] .= $res[$i][1] . $val[0];
                 $res[$i][1] = $val[1];
                 $res[$i][2] += $val[2];
             }
@@ -513,7 +513,10 @@ class Doctrine_Query_Tokenizer
     public function quotedStringExplode($str)
     {
         // Split by all possible incarnations of a quote
-        $split = array_map('preg_quote', array("\\'","''","'", "\\\"", "\"\"", "\""));
+        $split = array("\\'","''","'", "\\\"", "\"\"", "\"");
+        foreach ($split as &$v) {
+            $v = preg_quote($v);
+        }
         $split = '#(' . implode('|', $split) . ')#';
         $str = preg_split($split, $str, -1, PREG_SPLIT_DELIM_CAPTURE);
 

@@ -185,7 +185,7 @@ abstract class Doctrine_Record extends Doctrine_Record_Abstract implements Count
      *
      * @var array
      */
-    protected $_invokedSaveHooks = false;
+    protected $_invokedSaveHooks = array();
 
     /**
      * @var integer $index                  this index is used for creating object identifiers
@@ -834,6 +834,32 @@ abstract class Doctrine_Record extends Doctrine_Record_Abstract implements Count
      */
     public function serialize()
     {
+        $vars = $this->__serialize();
+
+        return serialize($vars);
+    }
+
+    /**
+     * this method is automatically called everytime an instance is unserialized
+     *
+     * @param string $serialized                Doctrine_Record as serialized string
+     * @throws Doctrine_Record_Exception        if the cleanData operation fails somehow
+     * @return void
+     */
+    public function unserialize($serialized)
+    {
+        $array = unserialize($serialized);
+
+        $this->__unserialize($array);
+    }
+
+    /**
+     * Serializes the current instance for php 7.4+
+     *
+     * @return array
+     */
+    public function __serialize() {
+
         $event = new Doctrine_Event($this, Doctrine_Event::RECORD_SERIALIZE);
 
         $this->preSerialize($event);
@@ -878,22 +904,18 @@ abstract class Doctrine_Record extends Doctrine_Record_Abstract implements Count
             }
         }
 
-        $str = serialize($vars);
-
         $this->postSerialize($event);
         $this->getTable()->getRecordListener()->postSerialize($event);
 
-        return $str;
+        return $vars;
     }
 
     /**
-     * this method is automatically called everytime an instance is unserialized
+     * Unserializes a Doctrine_Record instance for php 7.4+
      *
-     * @param string $serialized                Doctrine_Record as serialized string
-     * @throws Doctrine_Record_Exception        if the cleanData operation fails somehow
-     * @return void
+     * @param array $serialized
      */
-    public function unserialize($serialized)
+    public function __unserialize($data)
     {
         $event = new Doctrine_Event($this, Doctrine_Event::RECORD_UNSERIALIZE);
 
@@ -905,9 +927,7 @@ abstract class Doctrine_Record extends Doctrine_Record_Abstract implements Count
         $this->preUnserialize($event);
         $this->getTable()->getRecordListener()->preUnserialize($event);
 
-        $array = unserialize($serialized);
-
-        foreach($array as $k => $v) {
+        foreach($data as $k => $v) {
             $this->$k = $v;
         }
 
@@ -1004,7 +1024,8 @@ abstract class Doctrine_Record extends Doctrine_Record_Abstract implements Count
      *
      * @throws Doctrine_Record_Exception        When the refresh operation fails (when the database row
      *                                          this record represents does not exist anymore)
-     * @return boolean
+     *
+     * @return false|Doctrine_Record false if the record is not saved yet
      */
     public function refresh($deep = false)
     {
@@ -1055,10 +1076,8 @@ abstract class Doctrine_Record extends Doctrine_Record_Abstract implements Count
      * refresh
      * refresh data of related objects from the database
      *
-     * @param string $name              name of a related component.
-     *                                  if set, this method only refreshes the specified related component
-     *
-     * @return Doctrine_Record          this object
+     * @param string $name name of a related component. if set, this method only refreshes
+     *                     the specified related component
      */
     public function refreshRelated($name = null)
     {
@@ -1588,8 +1607,8 @@ abstract class Doctrine_Record extends Doctrine_Record_Abstract implements Count
         } else if (in_array($type, array('integer', 'int')) && is_numeric($old) && is_numeric($new)) {
             return $old != $new;
         } else if ($type == 'timestamp' || $type == 'date') {
-            $oldStrToTime = strtotime($old);
-            $newStrToTime = strtotime($new);
+            $oldStrToTime = @strtotime((string) $old);
+            $newStrToTime = @strtotime((string) $new);
             if ($oldStrToTime && $newStrToTime) {
                 return $oldStrToTime !== $newStrToTime;
             } else {
@@ -1913,6 +1932,7 @@ abstract class Doctrine_Record extends Doctrine_Record_Abstract implements Count
      *
      * @return integer          the number of columns in this record
      */
+    #[\ReturnTypeWillChange]
     public function count()
     {
         return count($this->_data);
@@ -2053,6 +2073,8 @@ abstract class Doctrine_Record extends Doctrine_Record_Abstract implements Count
         if ($refresh) {
             $this->refresh();
         }
+
+        return $this;
     }
 
     /**
@@ -2208,6 +2230,7 @@ abstract class Doctrine_Record extends Doctrine_Record_Abstract implements Count
      * implements IteratorAggregate interface
      * @return Doctrine_Record_Iterator     iterator through data
      */
+    #[\ReturnTypeWillChange]
     public function getIterator()
     {
         return new Doctrine_Record_Iterator($this);
