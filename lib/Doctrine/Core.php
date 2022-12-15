@@ -1,6 +1,6 @@
 <?php
 /*
- *  $Id: Doctrine.php 6483 2009-10-12 17:29:18Z jwage $
+ *  $Id$
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -28,7 +28,7 @@
  * @license     http://www.opensource.org/licenses/lgpl-license.php LGPL
  * @link        www.doctrine-project.org
  * @since       1.0
- * @version     $Revision: 6483 $
+ * @version     $Revision$
  */
 class Doctrine_Core
 {
@@ -210,6 +210,11 @@ class Doctrine_Core
     const ATTR_MODEL_CLASS_PREFIX           = 178;
     const ATTR_TABLE_CLASS_FORMAT           = 179;
     const ATTR_MAX_IDENTIFIER_LENGTH        = 180;
+    const ATTR_USE_TABLE_REPOSITORY         = 181;
+    const ATTR_USE_TABLE_IDENTITY_MAP       = 182;
+    const ATTR_TABLE_CACHE                  = 183;
+    const ATTR_TABLE_CACHE_LIFESPAN         = 184;
+
 
     /**
      * LIMIT CONSTANTS
@@ -673,8 +678,14 @@ class Doctrine_Core
                                 require_once($file->getPathName());
                                 $declaredAfter = get_declared_classes();
 
-                                // Using array_slice because array_diff is broken is some PHP versions
-                                $foundClasses = array_slice($declaredAfter, count($declaredBefore));
+                                if (defined('HHVM_VERSION')) {
+                                    // on HHVM get_declared_classes() returns in a different order, array_diff() works, so we have to use it
+                                    $foundClasses = array_diff($declaredAfter, $declaredBefore);
+                                } else {
+                                    // Using array_slice because array_diff is broken is some PHP versions
+                                    // https://bugs.php.net/bug.php?id=47643
+                                    $foundClasses = array_slice($declaredAfter, count($declaredBefore));
+                                }
 
                                 if ($foundClasses) {
                                     foreach ($foundClasses as $className) {
@@ -743,8 +754,14 @@ class Doctrine_Core
             Doctrine_Core::getTable($model);
 
             $declaredAfter = get_declared_classes();
-            // Using array_slice because array_diff is broken is some PHP versions
-            $foundClasses = array_slice($declaredAfter, count($declaredBefore) - 1);
+            if (defined('HHVM_VERSION')) {
+                // on HHVM get_declared_classes() returns in a different order, array_diff() works, so we have to use it
+                $foundClasses = array_diff($declaredAfter, $declaredBefore);
+            } else {
+                // Using array_slice because array_diff is broken is some PHP versions
+                // https://bugs.php.net/bug.php?id=47643
+                $foundClasses = array_slice($declaredAfter, count($declaredBefore) - 1);
+            }
             foreach ($foundClasses as $class) {
                 if (self::isValidModelClass($class)) {
                     $models[] = $class;
@@ -798,7 +815,7 @@ class Doctrine_Core
             // Skip the following classes
             // - abstract classes
             // - not a subclass of Doctrine_Record
-            if ( ! $class->isAbstract() && $class->isSubClassOf('Doctrine_Record')) {
+            if ( ! $class->isAbstract() && $class->isSubclassOf('Doctrine_Record')) {
 
                 return true;
             }
@@ -999,11 +1016,11 @@ class Doctrine_Core
      * @param string $append Whether or not to append the data
      * @return void
      */
-    public static function loadData($yamlPath, $append = false)
+    public static function loadData($yamlPath, $append = false, $charset = 'UTF-8')
     {
         $data = new Doctrine_Data();
 
-        return $data->importData($yamlPath, 'yml', array(), $append);
+        return $data->importData($yamlPath, 'yml', array(), $append, $charset);
     }
 
     /**

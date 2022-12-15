@@ -30,7 +30,7 @@
  * @since       1.0
  * @version     $Revision$
  */
-class Doctrine_UnitTestCase extends UnitTestCase 
+class Doctrine_UnitTestCase extends UnitTestCase
 {
     protected $manager;
     protected $connection;
@@ -57,19 +57,45 @@ class Doctrine_UnitTestCase extends UnitTestCase
 
     protected $init = false;
 
+    /**
+     * @var Doctrine_Connection[]
+     */
+    private $additionalConnections = array();
+
+    public function setUp()
+    {
+        parent::setUp();
+
+        if ( ! $this->init) {
+            $this->init();
+        }
+        if (isset($this->objTable)) {
+            $this->objTable->clear();
+        }
+
+        $this->init = true;
+    }
+
+    public function tearDown()
+    {
+        $this->closeAdditionalConnections();
+
+        parent::tearDown();
+    }
+
     public function getName()
     {
         return $this->_name;
     }
 
-    public function init() 
+    public function init()
     {
         $this->_name = get_class($this);
 
         $this->manager   = Doctrine_Manager::getInstance();
         $this->manager->setAttribute(Doctrine_Core::ATTR_EXPORT, Doctrine_Core::EXPORT_ALL);
 
-        $this->tables = array_merge($this->tables, 
+        $this->tables = array_merge($this->tables,
                         array('entity',
                               'entityReference',
                               'email',
@@ -78,7 +104,7 @@ class Doctrine_UnitTestCase extends UnitTestCase
                               'album',
                               'song',
                               'element',
-                              'error',
+                              'testerror',
                               'description',
                               'address',
                               'account',
@@ -96,7 +122,7 @@ class Doctrine_UnitTestCase extends UnitTestCase
 
         if ( ! $this->driverName) {
             $this->driverName = 'main';
-    
+
             switch($e[1]) {
                 case 'Export':
                 case 'Import':
@@ -106,9 +132,9 @@ class Doctrine_UnitTestCase extends UnitTestCase
                     $this->driverName = 'Sqlite';
                 break;
             }
-            
+
             $module = $e[1];
-    
+
             if (count($e) > 3) {
                 $driver = $e[2];
                 switch($e[2]) {
@@ -164,7 +190,7 @@ class Doctrine_UnitTestCase extends UnitTestCase
                     case 'Sequence':
                     case 'Expression':
                         $lower = strtolower($module);
-    
+
                         $this->$lower = $this->connection->$lower;
                     break;
                     case 'DataDict':
@@ -199,7 +225,7 @@ class Doctrine_UnitTestCase extends UnitTestCase
         $this->conn->export->exportClasses($this->tables);
         $this->objTable = $this->connection->getTable('User');
     }
-    public function prepareData() 
+    public function prepareData()
     {
         $groups = new Doctrine_Collection($this->connection->getTable('Group'));
 
@@ -255,38 +281,40 @@ class Doctrine_UnitTestCase extends UnitTestCase
         $users[7]->Phonenumber[0]->phonenumber = '111 567 333';
 
         $this->users = $users;
-        $this->users->save(); 
+        $this->users->save();
     }
-    public function getConnection() 
+    public function getConnection()
     {
         return $this->connection;
     }
-    public function assertDeclarationType($type, $type2) 
+    public function assertDeclarationType($type, $type2)
     {
         $dec = $this->getDeclaration($type);
-        
+
         if ( ! is_array($type2)) {
             $type2 = array($type2);
         }
 
         $this->assertEqual($dec['type'], $type2);
     }
-    public function getDeclaration($type) 
+    public function getDeclaration($type)
     {
         return $this->dataDict->getPortableDeclaration(array('type' => $type, 'name' => 'colname', 'length' => 1, 'fixed' => true));
     }
-    public function setUp()
-    {
-        if ( ! $this->init) {
-            $this->init();
-        }
-        if (isset($this->objTable)) {
-            $this->objTable->clear();
-        }
 
-        $this->init = true;
+    protected function openAdditionalConnection($adapter = null, $name = null)
+    {
+        $connection = $this->manager->openConnection($adapter, $name);
+
+        $this->additionalConnections[] = $connection;
+
+        return $connection;
     }
-    
-    public function tearDown() {
+
+    private function closeAdditionalConnections()
+    {
+        foreach ($this->additionalConnections as $connection) {
+            $this->manager->closeConnection($connection);
+        }
     }
 }
