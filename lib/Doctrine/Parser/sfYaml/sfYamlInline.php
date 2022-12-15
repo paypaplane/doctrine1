@@ -98,9 +98,9 @@ class sfYamlInline
         return 'true';
       case false === $value:
         return 'false';
-      case ctype_digit($value):
-        return is_string($value) ? "'$value'" : (int) $value;
-      case is_numeric($value):
+        case ctype_digit($value):
+          return is_string($value) ? "'$value'" : (int) $value;
+        case is_numeric($value):
         return is_infinite($value) ? str_ireplace('INF', '.Inf', strval($value)) : (is_string($value) ? "'$value'" : $value);
       case false !== strpos($value, "\n") || false !== strpos($value, "\r"):
         return sprintf('"%s"', str_replace(array('"', "\n", "\r"), array('\\"', '\n', '\r'), $value));
@@ -130,12 +130,13 @@ class sfYamlInline
    */
   static protected function dumpArray($value)
   {
+    print_r($value);
     // array
     $keys = array_keys($value);
     if (
       (1 == count($keys) && '0' == $keys[0])
       ||
-      (count($keys) > 1 && @array_reduce($keys, create_function('$v,$w', 'return (integer) $v + $w;'), 0) == count($keys) * (count($keys) - 1) / 2))
+      (count($keys) > 1 && array_reduce($keys, function ($v, $w) { return (int)($v + (int)$w);}, 0) == count($keys) * (count($keys) - 1) / 2))
     {
       $output = array();
       foreach ($value as $val)
