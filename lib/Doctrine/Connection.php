@@ -88,6 +88,28 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
     protected $isConnected      = false;
 
     /**
+     * @var array $_lastQueryParams Last query parameters for error debugging
+     */
+    protected $_lastQueryParams = array();
+
+    /**
+     * @var string $_lastQuery Last query for error debugging
+     */
+    protected $_lastQuery = null;
+
+    /**
+     * Set last query and params for error debugging
+     *
+     * @param string $query
+     * @param array $params
+     */
+    public function setLastQueryDebugInfo($query, $params = array())
+    {
+        $this->_lastQuery = $query;
+        $this->_lastQueryParams = $params;
+    }
+
+    /**
      * @var array $supported                    an array containing all features this driver supports,
      *                                          keys representing feature names and values as
      *                                          one of the following (true, false, 'emulated')
@@ -1008,6 +1030,10 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
     {
         $this->connect();
 
+        // Store for error debugging
+        $this->_lastQuery = $query;
+        $this->_lastQueryParams = $params;
+
         try {
             if ( ! empty($params)) {
                 $stmt = $this->prepare($query);
@@ -1043,6 +1069,10 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
     public function exec($query, array $params = array())
     {
         $this->connect();
+
+        // Store for error debugging
+        $this->_lastQuery = $query;
+        $this->_lastQueryParams = $params;
 
         try {
             if ( ! empty($params)) {
@@ -1083,8 +1113,25 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
         $name = 'Doctrine_Connection_' . $this->driverName . '_Exception';
 
         $message = $e->getMessage();
+
+        // Enhanced error information for string truncation and other common errors
         if ($query) {
+            $additionalInfo = $this->extractQueryDebugInfo($query, $e->getMessage(), $this->_lastQueryParams);
             $message .= sprintf('. Failing Query: "%s"', $query);
+
+            if ($additionalInfo) {
+                $message .= '. ' . $additionalInfo;
+            }
+        } else {
+            // If query is null, try to use stored query
+            if ($this->_lastQuery) {
+                $additionalInfo = $this->extractQueryDebugInfo($this->_lastQuery, $e->getMessage(), $this->_lastQueryParams);
+                $message .= sprintf('. Failing Query: "%s"', $this->_lastQuery);
+
+                if ($additionalInfo) {
+                    $message .= '. ' . $additionalInfo;
+                }
+            }
         }
 
         $exc  = new $name($message, (int) $e->getCode());
@@ -1098,6 +1145,89 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
         }
 
         $this->getListener()->postError($event);
+    }
+
+    /**
+     * Extract additional debug information from the query
+     *
+     * @param string $query
+     * @param string $errorMessage
+     * @param array $params
+     * @return string
+     */
+    protected function extractQueryDebugInfo($query, $errorMessage, $params = array())
+    {
+        $debugInfo = [];
+
+        // Extract table name from UPDATE, INSERT, DELETE queries
+        if (preg_match('/^\s*(UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+[`"]?(\w+)[`"]?/i', $query, $matches)) {
+            $debugInfo[] = "Table: {$matches[2]}";
+        }
+
+        // For UPDATE queries, try to identify which column might be the problem
+        if (stripos($errorMessage, 'too long') !== false || stripos($errorMessage, 'truncated') !== false) {
+            // Extract SET clause fields and match with parameters
+            if (preg_match('/SET\s+(.+?)(?:WHERE|$)/is', $query, $setMatches)) {
+                $setClause = $setMatches[1];
+                // Parse individual field assignments
+                if (preg_match_all('/[`"]?(\w+)[`"]?\s*=\s*([^,]+)/i', $setClause, $fieldMatches, PREG_SET_ORDER)) {
+                    $suspectFields = [];
+                    $paramIndex = 0;
+                    foreach ($fieldMatches as $field) {
+                        $fieldName = $field[1];
+                        $value = trim($field[2]);
+
+                        // Check if it's a placeholder and use actual parameter value
+                        if ($value === '?' && isset($params[$paramIndex])) {
+                            $actualValue = $params[$paramIndex];
+                            $paramIndex++;
+                        } else {
+                            // Remove quotes and use literal value
+                            $actualValue = trim($value, "'\"");
+                        }
+
+                        if (is_string($actualValue) && strlen($actualValue) > 20) { // Common varchar limit
+                            $suspectFields[] = "{$fieldName} (value length: " . strlen($actualValue) . ", value: " . substr($actualValue, 0, 50) . "...)";
+                        }
+                    }
+                    if (!empty($suspectFields)) {
+                        $debugInfo[] = "Suspect fields: " . implode(', ', $suspectFields);
+                    }
+                }
+            }
+
+            // For INSERT queries
+            if (preg_match('/INSERT\s+INTO\s+[`"]?\w+[`"]?\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/is', $query, $insertMatches)) {
+                $columns = array_map('trim', explode(',', $insertMatches[1]));
+                $values = array_map('trim', explode(',', $insertMatches[2]));
+
+                $suspectFields = [];
+                $paramIndex = 0;
+                foreach ($columns as $idx => $column) {
+                    $column = trim($column, '`"');
+                    if (isset($values[$idx])) {
+                        $value = trim($values[$idx]);
+
+                        // Check if it's a placeholder and use actual parameter value
+                        if ($value === '?' && isset($params[$paramIndex])) {
+                            $actualValue = $params[$paramIndex];
+                            $paramIndex++;
+                        } else {
+                            $actualValue = trim($value, "'\"");
+                        }
+
+                        if (is_string($actualValue) && strlen($actualValue) > 20) {
+                            $suspectFields[] = "{$column} (value length: " . strlen($actualValue) . ", value: " . substr($actualValue, 0, 50) . "...)";
+                        }
+                    }
+                }
+                if (!empty($suspectFields)) {
+                    $debugInfo[] = "Suspect fields: " . implode(', ', $suspectFields);
+                }
+            }
+        }
+
+        return implode('. ', $debugInfo);
     }
 
     /**

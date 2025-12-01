@@ -235,6 +235,9 @@ class Doctrine_Connection_Statement implements Doctrine_Adapter_Statement_Interf
      */
     public function execute($params = array())
     {
+        // Store query and params in connection for error debugging
+        $this->_conn->setLastQueryDebugInfo($this->getQuery(), $params);
+
         try {
             $event = new Doctrine_Event($this, Doctrine_Event::STMT_EXECUTE, $this->getQuery(), $params);
             $this->_conn->getListener()->preStmtExecute($event);
