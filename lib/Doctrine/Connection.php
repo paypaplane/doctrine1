@@ -1042,9 +1042,7 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
     {
         $this->connect();
 
-        // Store for error debugging
-        $this->_lastQuery = $query;
-        $this->_lastQueryParams = $params;
+        $this->setLastQueryDebugInfo($query, $params);
 
         try {
             if ( ! empty($params)) {
@@ -1126,24 +1124,13 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
 
         $message = $e->getMessage();
 
-        // Enhanced error information for string truncation and other common errors
-        if ($query) {
-            $additionalInfo = $this->extractQueryDebugInfo($query, $e->getMessage(), $this->_lastQueryParams);
-            $message .= sprintf('. Failing Query: "%s"', $query);
+        $effectiveQuery = $query ? $query : $this->_lastQuery;
 
-            if ($additionalInfo) {
-                $message .= '. ' . $additionalInfo;
-            }
-        } else {
-            // If query is null, try to use stored query
-            if ($this->_lastQuery) {
-                $additionalInfo = $this->extractQueryDebugInfo($this->_lastQuery, $e->getMessage(), $this->_lastQueryParams);
-                $message .= sprintf('. Failing Query: "%s"', $this->_lastQuery);
+        $additionalInfo = $this->extractQueryDebugInfo($effectiveQuery, $e->getMessage(), $this->_lastQueryParams);
+        $message .= sprintf('. Failing Query: "%s"', $effectiveQuery);
 
-                if ($additionalInfo) {
-                    $message .= '. ' . $additionalInfo;
-                }
-            }
+        if ($additionalInfo) {
+            $message .= '. ' . $additionalInfo;
         }
 
         $exc  = new $name($message, (int) $e->getCode());
@@ -1160,12 +1147,16 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
     }
 
     /**
-     * Extract additional debug information from the query
+     * Extract additional debug information from the query.
      *
-     * @param string $query
-     * @param string $errorMessage
-     * @param array $params
-     * @return string
+     * Returns a formatted debug information string containing table names and
+     * potentially suspect fields inferred from the query and error message,
+     * or an empty string if no additional debug information can be extracted.
+     *
+     * @param string $query         The SQL query that caused the error.
+     * @param string $errorMessage  The database error message.
+     * @param array $params         The query parameters used when executing the query.
+     * @return string               Formatted debug information string or an empty string.
      */
     protected function extractQueryDebugInfo($query, $errorMessage, $params = array())
     {
@@ -1189,19 +1180,9 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
                         $fieldName = $field[1];
                         $value = trim($field[2]);
 
-                        // Check if it's a placeholder and use actual parameter value
-                        if ($value === '?' && isset($params[$paramIndex])) {
-                            $actualValue = $params[$paramIndex];
-                            $paramIndex++;
-                        } else {
-                            // Remove quotes and use literal value
-                            $actualValue = trim($value, "'\"");
-                        }
-
-                        if (is_string($actualValue) && strlen($actualValue) > self::SUSPECT_FIELD_LENGTH_THRESHOLD ) {
-                            $suspectFields[] = "{$fieldName} (value length: " . strlen($actualValue) . ", value: " . substr($actualValue, 0, self::SUSPECT_FIELD_VALUE_PREVIEW_LENGTH) . "...)";
-                        }
+                        $this->parseSuspectFields($suspectFields, $fieldName, $value, $params, $paramIndex);
                     }
+
                     if (!empty($suspectFields)) {
                         $debugInfo[] = "Suspect fields: " . implode(', ', $suspectFields);
                     }
@@ -1220,17 +1201,7 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
                     if (isset($values[$idx])) {
                         $value = trim($values[$idx]);
 
-                        // Check if it's a placeholder and use actual parameter value
-                        if ($value === '?' && isset($params[$paramIndex])) {
-                            $actualValue = $params[$paramIndex];
-                            $paramIndex++;
-                        } else {
-                            $actualValue = trim($value, "'\"");
-                        }
-
-                        if (is_string($actualValue) && strlen($actualValue) > 20) {
-                            $suspectFields[] = "{$column} (value length: " . strlen($actualValue) . ", value: " . substr($actualValue, 0, 50) . "...)";
-                        }
+                        $this->parseSuspectFields($suspectFields, $column, $value, $params, $paramIndex);
                     }
                 }
                 if (!empty($suspectFields)) {
@@ -1242,6 +1213,28 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
         return implode('. ', $debugInfo);
     }
 
+    /**
+     * Helper method to parse and identify suspect fields based on value length.
+     *
+     * @param string $fieldName      The name of the field being evaluated.
+     * @param string $value          The value assigned to the field in the query.
+     * @param array $params          The query parameters used when executing the query.
+     * @param int &$paramIndex       Reference to the current index in the parameters array.
+     */
+    private function parseSuspectFields(&$suspectFields, $fieldName, $value, $params, &$paramIndex): void
+    {
+        if ($value === '?' && isset($params[$paramIndex])) {
+            $actualValue = $params[$paramIndex];
+            $paramIndex++;
+        } else {
+            // Remove quotes and use literal value
+            $actualValue = trim($value, "'\"");
+        }
+
+        if (is_string($actualValue) && strlen($actualValue) > self::SUSPECT_FIELD_LENGTH_THRESHOLD ) {
+            $suspectFields[] = "{$fieldName} (value length: " . strlen($actualValue) . ", value: " . substr($actualValue, 0, self::SUSPECT_FIELD_VALUE_PREVIEW_LENGTH) . "...)";
+        }
+    }
     /**
      * hasTable
      * whether or not this connection has table $name initialized
