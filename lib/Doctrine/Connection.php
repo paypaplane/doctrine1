@@ -98,6 +98,18 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
     protected $_lastQuery = null;
 
     /**
+     * Minimum character length for field values to be flagged as "suspect" and included in error debugging.
+     * Fields with values shorter than this threshold are not reported in error messages.
+     */
+    const SUSPECT_FIELD_LENGTH_THRESHOLD = 15;
+
+    /**
+     * Maximum number of characters to display when previewing long field values in error messages.
+     * Values longer than this will be truncated with "..." appended for readability.
+     */
+    const SUSPECT_FIELD_VALUE_PREVIEW_LENGTH  = 20;
+
+    /**
      * Set last query and params for error debugging
      *
      * @param string $query
@@ -1186,8 +1198,8 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
                             $actualValue = trim($value, "'\"");
                         }
 
-                        if (is_string($actualValue) && strlen($actualValue) > 20) { // Common varchar limit
-                            $suspectFields[] = "{$fieldName} (value length: " . strlen($actualValue) . ", value: " . substr($actualValue, 0, 50) . "...)";
+                        if (is_string($actualValue) && strlen($actualValue) > self::SUSPECT_FIELD_LENGTH_THRESHOLD ) {
+                            $suspectFields[] = "{$fieldName} (value length: " . strlen($actualValue) . ", value: " . substr($actualValue, 0, self::SUSPECT_FIELD_VALUE_PREVIEW_LENGTH) . "...)";
                         }
                     }
                     if (!empty($suspectFields)) {
