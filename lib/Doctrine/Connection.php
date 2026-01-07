@@ -1216,6 +1216,7 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
     /**
      * Helper method to parse and identify suspect fields based on value length.
      *
+     * @param array &$suspectFields  Reference to the array collecting suspect field information.
      * @param string $fieldName      The name of the field being evaluated.
      * @param string $value          The value assigned to the field in the query.
      * @param array $params          The query parameters used when executing the query.
@@ -1231,10 +1232,11 @@ abstract class Doctrine_Connection extends Doctrine_Configurable implements Coun
             $actualValue = trim($value, "'\"");
         }
 
-        if (is_string($actualValue) && strlen($actualValue) > self::SUSPECT_FIELD_LENGTH_THRESHOLD ) {
+        if (is_string($actualValue) && strlen($actualValue) > self::SUSPECT_FIELD_LENGTH_THRESHOLD) {
             $suspectFields[] = "{$fieldName} (value length: " . strlen($actualValue) . ", value: " . substr($actualValue, 0, self::SUSPECT_FIELD_VALUE_PREVIEW_LENGTH) . "...)";
         }
     }
+
     /**
      * hasTable
      * whether or not this connection has table $name initialized
