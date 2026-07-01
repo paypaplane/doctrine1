@@ -283,7 +283,10 @@ class Doctrine_Connection_Statement implements Doctrine_Adapter_Statement_Interf
         } catch (Doctrine_Adapter_Exception $e) {
         }
 
-        $this->_conn->rethrowException($e, $this);
+        // Pass the prepared SQL so rethrowException() appends the failing query
+        // to the message. Placeholders only (no bound values) to avoid logging
+        // sensitive parameter data.
+        $this->_conn->rethrowException($e, $this, $this->getQuery());
 
         return false;
     }
